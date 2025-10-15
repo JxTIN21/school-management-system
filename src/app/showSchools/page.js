@@ -1,16 +1,22 @@
-'use client';
-
 import Link from 'next/link';
 import SchoolsClient from '@/components/SchoolsClient';
 
+// Remove 'use client' - this should be a Server Component
 async function getSchools() {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/schools`, {
-      cache: 'no-store'
+    // Use NEXT_PUBLIC_BASE_URL from environment variables
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/schools`, {
+      cache: 'no-store',
+      // Add headers to prevent caching
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
     });
     
     if (!response.ok) {
-      throw new Error('Failed to fetch schools');
+      console.error('Failed to fetch schools:', response.status);
+      return [];
     }
     
     return await response.json();
@@ -52,3 +58,7 @@ export default async function ShowSchools() {
     </div>
   );
 }
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
