@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS schools (
     city TEXT NOT NULL,
     state TEXT NOT NULL,
     contact VARCHAR(20) NOT NULL,
-    image TEXT,
+    image LONGTEXT,
     email_id VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
