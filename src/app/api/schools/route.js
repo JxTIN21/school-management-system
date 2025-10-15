@@ -41,6 +41,15 @@ export async function POST(request) {
         const bytes = await imageFile.arrayBuffer();
         const buffer = Buffer.from(bytes);
         
+        // Limit image size (5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (buffer.length > maxSize) {
+          return NextResponse.json(
+            { error: 'Image size exceeds 5MB limit' },
+            { status: 400 }
+          );
+        }
+        
         // Store as Base64 data URL
         const base64 = buffer.toString('base64');
         imageData = `data:${imageFile.type};base64,${base64}`;
@@ -48,7 +57,19 @@ export async function POST(request) {
         console.log('Image converted to Base64 for storage');
       } catch (error) {
         console.error('Image processing error:', error);
+        return NextResponse.json(
+          { error: 'Failed to process image', details: error.message },
+          { status: 400 }
+        );
       }
+    }
+
+    // Validate required fields
+    if (!name || !address || !city || !state || !contact || !email_id) {
+      return NextResponse.json(
+        { error: 'All required fields must be provided' },
+        { status: 400 }
+      );
     }
 
     // Insert into database with Base64 image
@@ -90,7 +111,14 @@ export async function DELETE(request) {
     }
 
     connection = await pool.getConnection();
-    await connection.query('DELETE FROM schools WHERE id = ?', [id]);
+    const [result] = await connection.query('DELETE FROM schools WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { error: 'School not found' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({ message: 'School deleted successfully' });
   } catch (error) {
@@ -104,5 +132,6 @@ export async function DELETE(request) {
   }
 }
 
+// Force dynamic rendering
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
