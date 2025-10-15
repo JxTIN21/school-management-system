@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { put } from '@vercel/blob';
 
 // GET all schools
 export async function GET() {
@@ -34,28 +33,32 @@ export async function POST(request) {
     const email_id = formData.get('email_id');
     const imageFile = formData.get('image');
 
-    let imageUrl = null;
+    let imageData = null;
 
-    // Handle image upload using Vercel Blob (or alternative cloud storage)
+    // Convert image to Base64 for database storage
     if (imageFile && imageFile.size > 0) {
       try {
-        // Using Vercel Blob Storage
-        const blob = await put(imageFile.name, imageFile, {
-          access: 'public',
-        });
-        imageUrl = blob.url;
-      } catch (uploadError) {
-        console.error('Image upload error:', uploadError);
-        // Continue without image if upload fails
+        const bytes = await imageFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        
+        // Store as Base64 data URL
+        const base64 = buffer.toString('base64');
+        imageData = `data:${imageFile.type};base64,${base64}`;
+        
+        console.log('Image converted to Base64 for storage');
+      } catch (error) {
+        console.error('Image processing error:', error);
       }
     }
 
-    // Insert into database
+    // Insert into database with Base64 image
     connection = await pool.getConnection();
     const [result] = await connection.query(
       'INSERT INTO schools (name, address, city, state, contact, image, email_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, address, city, state, contact, imageUrl, email_id]
+      [name, address, city, state, contact, imageData, email_id]
     );
+
+    console.log('School added with ID:', result.insertId);
 
     return NextResponse.json(
       { message: 'School added successfully', id: result.insertId },
@@ -65,6 +68,35 @@ export async function POST(request) {
     console.error('Error adding school:', error);
     return NextResponse.json(
       { error: 'Failed to add school', details: error.message },
+      { status: 500 }
+    );
+  } finally {
+    if (connection) connection.release();
+  }
+}
+
+// DELETE school
+export async function DELETE(request) {
+  let connection;
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'School ID is required' },
+        { status: 400 }
+      );
+    }
+
+    connection = await pool.getConnection();
+    await connection.query('DELETE FROM schools WHERE id = ?', [id]);
+
+    return NextResponse.json({ message: 'School deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting school:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete school', details: error.message },
       { status: 500 }
     );
   } finally {
