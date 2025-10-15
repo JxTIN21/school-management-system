@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { put } from '@vercel/blob';
 
 // GET all schools
 export async function GET() {
+  let connection;
   try {
-    const [rows] = await pool.query('SELECT * FROM schools ORDER BY id DESC');
+    connection = await pool.getConnection();
+    const [rows] = await connection.query('SELECT * FROM schools ORDER BY id DESC');
     return NextResponse.json(rows);
   } catch (error) {
     console.error('Database error:', error);
@@ -14,11 +15,14 @@ export async function GET() {
       { error: 'Failed to fetch schools', details: error.message },
       { status: 500 }
     );
+  } finally {
+    if (connection) connection.release();
   }
 }
 
 // POST new school
 export async function POST(request) {
+  let connection;
   try {
     const formData = await request.formData();
     
@@ -30,41 +34,28 @@ export async function POST(request) {
     const email_id = formData.get('email_id');
     const imageFile = formData.get('image');
 
-    console.log('Form data received:', { name, address, city, state, contact, email_id });
+    let imageUrl = null;
 
-    let imageName = null;
-
-    // Handle image upload
+    // Handle image upload using Vercel Blob (or alternative cloud storage)
     if (imageFile && imageFile.size > 0) {
-      const bytes = await imageFile.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-
-      // Create unique filename
-      const timestamp = Date.now();
-      const originalName = imageFile.name.replace(/\s+/g, '-');
-      imageName = `${timestamp}-${originalName}`;
-
-      // Ensure directory exists
-      const publicPath = path.join(process.cwd(), 'public', 'schoolImages');
-      
       try {
-        await mkdir(publicPath, { recursive: true });
-      } catch (err) {
-        console.log('Directory already exists or created');
+        // Using Vercel Blob Storage
+        const blob = await put(imageFile.name, imageFile, {
+          access: 'public',
+        });
+        imageUrl = blob.url;
+      } catch (uploadError) {
+        console.error('Image upload error:', uploadError);
+        // Continue without image if upload fails
       }
-
-      const filePath = path.join(publicPath, imageName);
-      await writeFile(filePath, buffer);
-      console.log('Image saved:', imageName);
     }
 
     // Insert into database
-    const [result] = await pool.query(
+    connection = await pool.getConnection();
+    const [result] = await connection.query(
       'INSERT INTO schools (name, address, city, state, contact, image, email_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, address, city, state, contact, imageName, email_id]
+      [name, address, city, state, contact, imageUrl, email_id]
     );
-
-    console.log('School added with ID:', result.insertId);
 
     return NextResponse.json(
       { message: 'School added successfully', id: result.insertId },
@@ -76,5 +67,10 @@ export async function POST(request) {
       { error: 'Failed to add school', details: error.message },
       { status: 500 }
     );
+  } finally {
+    if (connection) connection.release();
   }
 }
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
