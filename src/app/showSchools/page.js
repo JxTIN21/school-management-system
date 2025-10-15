@@ -1,5 +1,6 @@
+'use client';
+
 import Link from 'next/link';
-import SchoolCard from '@/components/SchoolCard';
 import SchoolsClient from '@/components/SchoolsClient';
 
 async function getSchools() {
