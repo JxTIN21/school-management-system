@@ -56,7 +56,7 @@ Before you begin, ensure you have the following installed:
 
 ### 1. Clone the repository
 ```bash
-git clonehttps://github.com/JxTIN21/School-Management-System-.git
+git clone https://github.com/JxTIN21/school-management-system.git
 cd school-management-system
 ```
 
